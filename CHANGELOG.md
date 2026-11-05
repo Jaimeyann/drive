@@ -12,6 +12,7 @@ and this project adheres to
 
 - 🔧(docker) add a CACHEBUST build arg to force the system packages upgrade
 - ✨(backend) monitor the malware detection queue in the business metrics
+- ✨(backend) record the provenance of items in a new source field
 
 ### Removed
 
