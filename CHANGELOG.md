@@ -14,6 +14,7 @@ and this project adheres to
 - ✨(backend) monitor the malware detection queue in the business metrics
 - ✨(backend) record the provenance of items in a new source field
 - ✨(backend) show every item attribute in the admin change view
+- 📈(backend) track the source of uploads in posthog
 
 ### Removed
 
