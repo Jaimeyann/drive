@@ -1775,6 +1775,25 @@ class Base(Configuration):
             environ_prefix=None,
         ),
     }
+    # Who the share modal suggests (core.user_search): Drive's own users by
+    # default, or the user's contacts in La Suite Contacts with
+    # core.user_search.backends.contacts.ContactsUserSearchBackend and
+    # {"base_url": "https://contacts.example.org"} as parameters (it needs
+    # OIDC_STORE_ACCESS_TOKEN and OIDC_STORE_REFRESH_TOKEN). See
+    # docs/user-search.md.
+    USER_SEARCH = {
+        "BACKEND": values.Value(
+            "core.user_search.backends.local.LocalUserSearchBackend",
+            environ_name="USER_SEARCH_BACKEND",
+            environ_prefix=None,
+        ),
+        "PARAMETERS": values.DictValue(
+            default={},
+            environ_name="USER_SEARCH_BACKEND_PARAMETERS",
+            environ_prefix=None,
+        ),
+    }
+
     # Delay in seconds for the development SleepyDummyBackend safe result.
     MALWARE_DETECTION_DUMMY_SLEEP = values.PositiveIntegerValue(
         3,
