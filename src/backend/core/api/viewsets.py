@@ -65,6 +65,15 @@ from core.services.search_indexers import (
 from core.services.uploads import reserve_upload
 from core.storage.cache import invalidate_storage_used_cache
 from core.tasks.item import duplicate_file, process_item_purge, rename_file
+from core.user_search import user_search
+from core.user_search.backends.local import (
+    LOCAL_MIN_QUERY_LENGTH,
+    LocalUserSearchBackend,
+    filter_users,
+)
+from core.user_search.exceptions import UserSearchUnavailableError
+from core.user_search.sharing import report_share
+from core.user_search.tokens import fresh_access_token
 from core.utils.analytics import posthog_capture
 from wopi.conversion import exceptions as conversion_exceptions
 from wopi.conversion.services import prepare_conversion
@@ -243,26 +252,71 @@ class UserViewSet(
         if item_id := self.request.query_params.get("item_id", ""):
             queryset = queryset.exclude(itemaccess__item_id=item_id)
 
-        if not (query := self.request.query_params.get("q", "")) or len(query) < 5:
+        query = self.request.query_params.get("q", "")
+        if len(query) < LOCAL_MIN_QUERY_LENGTH:
             return queryset.none()
 
-        # For emails, match emails by Levenstein distance to prevent typing errors
-        if "@" in query:
-            return (
-                queryset.annotate(distance=RawSQL("levenshtein(email::text, %s::text)", (query,)))
-                .filter(distance__lte=3)
-                .order_by("distance", "email")[: settings.API_USERS_LIST_LIMIT]
-            )
+        return filter_users(queryset, query, settings.API_USERS_LIST_LIMIT)
 
-        # Use trigram similarity for non-email-like queries
-        # For performance reasons we filter first by similarity, which relies on an
-        # index, then only calculate precise similarity scores for sorting purposes
-        return (
-            queryset.filter(email__trigram_word_similar=query)
-            .annotate(similarity=TrigramSimilarity("email", query))
-            .filter(similarity__gt=0.2)
-            .order_by("-similarity", "email")[: settings.API_USERS_LIST_LIMIT]
-        )
+    def list(self, request, *args, **kwargs):
+        """
+        Search the people to share with, through the USER_SEARCH backend.
+
+        Drive's own users by default (the queryset above). Another backend
+        (e.g. the user's contacts in La Suite Contacts) answers with users
+        and with addresses that have no account yet: those come back as
+        {"id": email, "email": email, ...}, which the share modal turns into
+        an invitation. When that backend can't answer, the local search
+        does, so the modal keeps working.
+        """
+        backend = user_search
+        if isinstance(backend, LocalUserSearchBackend):
+            return super().list(request, *args, **kwargs)
+
+        query = request.query_params.get("q", "")
+        if len(query) < backend.min_query_length:
+            return drf.response.Response([])
+
+        access_token = None
+        if backend.requires_access_token:
+            access_token = fresh_access_token(request)
+        try:
+            results = backend.search(
+                request.user,
+                query,
+                limit=settings.API_USERS_LIST_LIMIT,
+                access_token=access_token,
+            )
+        except UserSearchUnavailableError:
+            if getattr(backend, "fallback_to_local", True):
+                return super().list(request, *args, **kwargs)
+            return drf.response.Response([])
+
+        if item_id := request.query_params.get("item_id", ""):
+            already_in = set(
+                models.ItemAccess.objects.filter(item_id=item_id, user__isnull=False).values_list(
+                    "user_id", flat=True
+                )
+            )
+            results = [
+                result
+                for result in results
+                if result.user is None or result.user.pk not in already_in
+            ]
+
+        return drf.response.Response([self._serialize_result(result) for result in results])
+
+    def _serialize_result(self, result):
+        """A user search result, shaped like a user for the share modal."""
+        if result.user is not None:
+            return self.get_serializer(result.user).data
+        # No account: the share modal invites a result whose id is its email.
+        return {
+            "id": result.email,
+            "email": result.email,
+            "full_name": result.full_name,
+            "short_name": "",
+        }
 
     @drf.decorators.action(
         detail=False,
@@ -1889,6 +1943,7 @@ class ItemViewSet(
                 request.user,
                 request.user.language or settings.LANGUAGE_CODE,
             )
+        report_share(request, [email for email, _role in created_accesses + created_invitations])
 
         posthog_capture(
             "item_batch_share",
@@ -2522,6 +2577,7 @@ class ItemAccessViewSet(
                 self.request.user,
                 self.request.user.language or settings.LANGUAGE_CODE,
             )
+            report_share(self.request, [access.user.email])
 
         posthog_capture(
             "item_access_created",
@@ -2638,6 +2694,7 @@ class InvitationViewset(
             self.request.user,
             self.request.user.language or settings.LANGUAGE_CODE,
         )
+        report_share(self.request, [invitation.email])
 
         posthog_capture(
             "item_invitation_created",

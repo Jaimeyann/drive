@@ -1878,7 +1878,7 @@
         "/api/v1.0/users/": {
             "get": {
                 "operationId": "users_list",
-                "description": "User ViewSet",
+                "description": "Search the people to share with, through the USER_SEARCH backend.\n\nDrive's own users by default (the queryset above). Another backend\n(e.g. the user's contacts in La Suite Contacts) answers with users\nand with addresses that have no account yet: those come back as\n{\"id\": email, \"email\": email, ...}, which the share modal turns into\nan invitation. When that backend can't answer, the local search\ndoes, so the modal keeps working.",
                 "tags": [
                     "users"
                 ],
