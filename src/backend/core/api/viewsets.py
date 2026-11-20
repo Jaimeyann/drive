@@ -750,20 +750,6 @@ class ItemViewSet(
             if extension:
                 self._create_file_from_template(serializer.instance, extension)
 
-    def _get_live_restrictions_under(self, path, pk):
-        """Return the live restrictions with a live target found under the given item."""
-        return models.Item.objects.filter(
-            type=models.ItemTypeChoices.RESTRICTION,
-            path__descendants=path,
-            deleted_at__isnull=True,
-            ancestors_deleted_at__isnull=True,
-            hard_deleted_at__isnull=True,
-            target__isnull=False,
-            target__deleted_at__isnull=True,
-            target__ancestors_deleted_at__isnull=True,
-            target__hard_deleted_at__isnull=True,
-        ).exclude(pk=pk)
-
     def _capture_restriction_event(self, event_name, item):
         """Track a restriction change along with the link reach left on the folder."""
         posthog_capture(
@@ -785,8 +771,9 @@ class ItemViewSet(
             instance = instance.target
         # Computed before the deletion trashes or lifts the restrictions
         has_restricted_descendant = (
-            instance.type == models.ItemTypeChoices.FOLDER
-            and self._get_live_restrictions_under(instance.path, instance.pk).exists()
+            bool(settings.POSTHOG_KEY)
+            and instance.type == models.ItemTypeChoices.FOLDER
+            and models.Item.objects.live_restrictions_under(instance.path, instance.pk).exists()
         )
         instance.soft_delete(self.request.user)
         posthog_capture(
@@ -1532,7 +1519,9 @@ class ItemViewSet(
         payload = deletion_serializers.ItemsDeletionInfoRequestSerializer(data=request.data)
         payload.is_valid(raise_exception=True)
         ids = payload.validated_data["ids"]
-        restrictions = self._get_live_restrictions_under(db.OuterRef("path"), db.OuterRef("pk"))
+        restrictions = models.Item.objects.live_restrictions_under(
+            db.OuterRef("path"), db.OuterRef("pk")
+        )
         items = list(
             self.queryset.filter(pk__in=ids)
             .annotate_user_roles(request.user)

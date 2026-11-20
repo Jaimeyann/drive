@@ -306,3 +306,19 @@ def test_api_items_delete_posthog_event_restricted_descendant(posthog_capture_mo
     )
     properties = posthog_capture_mock.call_args.kwargs["properties"]
     assert properties.items() >= {"item_id": item.id, "has_restricted_descendant": True}.items()
+
+
+def test_api_items_delete_posthog_disabled_no_restriction_lookup(settings):
+    """Deleting a folder should not look for restricted folders when PostHog is disabled."""
+    settings.POSTHOG_KEY = None
+    user = factories.UserFactory()
+    item = factories.ItemFactory(type=models.ItemTypeChoices.FOLDER, users=[(user, "owner")])
+
+    client = APIClient()
+    client.force_login(user)
+
+    with mock.patch.object(models.ItemQuerySet, "live_restrictions_under") as lookup:
+        response = client.delete(f"/api/v1.0/items/{item.id!s}/")
+
+    assert response.status_code == 204
+    lookup.assert_not_called()
