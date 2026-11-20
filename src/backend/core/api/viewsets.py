@@ -1093,6 +1093,7 @@ class ItemViewSet(
             "item_upload_rejected",
             self.request.user,
             {
+                "item_id": item.id,
                 "reason": reason,
                 "mimetype": mimetype,
                 "size": size,

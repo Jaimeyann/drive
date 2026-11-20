@@ -303,6 +303,7 @@ def test_api_upload_reservations_upload_ended_size_mismatch_posthog_event(postho
         "item_upload_rejected",
         distinct_id=user.email,
         properties={
+            "item_id": item.id,
             "reason": "file_size_mismatch",
             "source": "drive_upload",
             "mimetype": None,

@@ -365,6 +365,7 @@ def test_api_item_upload_ended_mimetype_not_allowed_posthog_event(settings, post
         "item_upload_rejected",
         distinct_id=user.email,
         properties={
+            "item_id": item.id,
             "reason": "file_type_not_allowed",
             "source": "drive_upload",
             "mimetype": "text/plain",
@@ -400,6 +401,7 @@ def test_api_item_upload_ended_entitlements_backend_returns_falsy_posthog_event(
         "item_upload_rejected",
         distinct_id=user.email,
         properties={
+            "item_id": item.id,
             "reason": reason or "permission_denied",
             "source": "drive_upload",
             "mimetype": None,
@@ -599,6 +601,7 @@ def test_api_upload_ended_file_size_exceeded_posthog_event(settings, posthog_cap
         "item_upload_rejected",
         distinct_id=user.email,
         properties={
+            "item_id": item.id,
             "reason": "file_size_exceeded",
             "source": "drive_upload",
             "mimetype": None,
