@@ -724,10 +724,13 @@ class ItemViewSet(
         data = serializer.validated_data.copy()
         extension = data.pop("extension", None)
         attributes = self.get_create_extra_attributes()
-        attributes.setdefault(
-            "source",
-            models.ItemSourceChoices.TEMPLATE if extension else models.ItemSourceChoices.UPLOAD,
-        )
+        if extension:
+            source = models.ItemSourceChoices.TEMPLATE
+        elif data["type"] == models.ItemTypeChoices.FOLDER:
+            source = models.ItemSourceChoices.CREATE
+        else:
+            source = models.ItemSourceChoices.UPLOAD
+        attributes.setdefault("source", source)
         if parent is not None:
             attributes["parent"] = parent
         else:

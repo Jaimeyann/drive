@@ -12,8 +12,8 @@ from core import factories, models
 pytestmark = pytest.mark.django_db
 
 
-def test_api_items_create_folder_source_upload():
-    """Folders created through the regular API are tagged drive_upload."""
+def test_api_items_create_folder_source_create():
+    """Folders created through the regular API are tagged drive_create."""
     user = factories.UserFactory()
     client = APIClient()
     client.force_login(user)
@@ -25,7 +25,7 @@ def test_api_items_create_folder_source_upload():
     )
 
     assert response.status_code == 201
-    assert models.Item.objects.get().source == models.ItemSourceChoices.UPLOAD
+    assert models.Item.objects.get().source == models.ItemSourceChoices.CREATE
 
 
 def test_api_items_create_file_source_upload():
