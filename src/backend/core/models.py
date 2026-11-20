@@ -107,6 +107,7 @@ class ItemSourceChoices(models.TextChoices):
     """Define the reserved drive_ source values, any other source is an external client_id."""
 
     UPLOAD = "drive_upload"
+    CREATE = "drive_create"
     TEMPLATE = "drive_template"
     DUPLICATE = "drive_duplicate"
     CONVERT = "drive_convert"
