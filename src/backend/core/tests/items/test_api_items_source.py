@@ -63,7 +63,7 @@ def test_api_items_create_source_read_only():
     )
 
     assert response.status_code == 201
-    assert models.Item.objects.get().source == models.ItemSourceChoices.UPLOAD
+    assert models.Item.objects.get().source == models.ItemSourceChoices.CREATE
 
 
 def test_api_items_update_source_read_only():
